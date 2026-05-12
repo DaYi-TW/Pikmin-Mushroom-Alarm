@@ -11,7 +11,9 @@
     <key>UILaunchScreen</key>
     <dict>
         <key>UIColorName</key>
-        <string></string>
+        <string>LaunchBackground</string>
+        <key>UINavigationBar</key>
+        <dict/>
     </dict>
     <key>UISupportedInterfaceOrientations</key>
     <array>

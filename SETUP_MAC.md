@@ -33,7 +33,10 @@ PikminMushroomAlarm/Views/HeroCardView.swift
 PikminMushroomAlarm/Views/MushroomCardView.swift
 PikminMushroomAlarm/Views/AddMushroomSheet.swift
 PikminMushroomAlarm/Views/DeleteConfirmSheet.swift
+PikminMushroomAlarm/Views/LaunchScreenView.swift
 ```
+
+**Asset Catalog**: Xcode 新建 App 時會自帶一個 `Assets.xcassets`。**刪掉它**，改把 `PikminMushroomAlarm/Resources/Assets.xcassets/` 整個資料夾拖進 project（勾 main app target），裡面已經有 `LaunchBackground` 色票供 launch screen 引用。之後 App Icon 也會放這裡。
 
 Info.plist 不要拖（Xcode 自己會管），改用我們 `Resources/Info.plist` 裡的 key 去 target 的 Info 頁手動補：
 - `NSPhotoLibraryUsageDescription`

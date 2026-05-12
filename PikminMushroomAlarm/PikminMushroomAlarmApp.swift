@@ -8,6 +8,7 @@ import UserNotifications
 @main
 struct PikminMushroomAlarmApp: App {
     @Environment(\.scenePhase) private var scenePhase
+    @State private var showLaunchScreen = true
 
     init() {
         UNUserNotificationCenter.current().delegate = NotificationActionHandler.shared
@@ -16,8 +17,22 @@ struct PikminMushroomAlarmApp: App {
 
     var body: some Scene {
         WindowGroup {
-            HomeView()
-                .task { await reconcileLiveActivities() }
+            ZStack {
+                HomeView()
+                    .task { await reconcileLiveActivities() }
+
+                if showLaunchScreen {
+                    LaunchScreenView()
+                        .transition(.opacity)
+                        .zIndex(1)
+                }
+            }
+            .task {
+                try? await Task.sleep(nanoseconds: 1_100_000_000)
+                withAnimation(.easeOut(duration: 0.35)) {
+                    showLaunchScreen = false
+                }
+            }
         }
         .modelContainer(MushroomStore.shared)
         .onChange(of: scenePhase) { _, phase in
