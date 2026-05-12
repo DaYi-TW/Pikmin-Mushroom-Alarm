@@ -36,3 +36,6 @@ fastlane/test_output
 # OS
 Thumbs.db
 desktop.ini
+
+# Original icon export from makeappicon — copied into Assets.xcassets already
+icon/
