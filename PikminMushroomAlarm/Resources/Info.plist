@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>zh_TW</string>
+    <key>CFBundleDisplayName</key>
+    <string>蘑菇鬧鐘</string>
+    <key>UIUserInterfaceStyle</key>
+    <string>Light</string>
+    <key>UILaunchScreen</key>
+    <dict>
+        <key>UIColorName</key>
+        <string></string>
+    </dict>
+    <key>UISupportedInterfaceOrientations</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+    </array>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>讀取 Pikmin Bloom 截圖以辨識蘑菇剩餘時間。</string>
+    <key>NSUserNotificationsUsageDescription</key>
+    <string>在蘑菇即將刷新時提醒你打開 Pikmin Bloom。</string>
+    <key>NSSupportsLiveActivities</key>
+    <true/>
+    <key>NSSupportsLiveActivitiesFrequentUpdates</key>
+    <true/>
+</dict>
+</plist>
