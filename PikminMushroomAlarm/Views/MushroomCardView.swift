@@ -8,6 +8,7 @@ struct MushroomCardView: View {
     let isActive: Bool
     var onSelect: () -> Void
     var onRequestDelete: () -> Void
+    var onRequestEdit: () -> Void
 
     private let ticker = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
     @State private var now: Date = .now
@@ -61,15 +62,34 @@ struct MushroomCardView: View {
         }
         .buttonStyle(.plain)
         .overlay(alignment: .topTrailing) {
-            Button(action: onRequestDelete) {
-                Image(systemName: "xmark")
-                    .font(.caption.weight(.heavy))
-                    .frame(width: 28, height: 28)
-                    .background(Color(.systemGray6), in: Circle())
-                    .foregroundStyle(.secondary)
+            HStack(spacing: 6) {
+                Button(action: onRequestEdit) {
+                    Image(systemName: "pencil")
+                        .font(.caption.weight(.heavy))
+                        .frame(width: 28, height: 28)
+                        .background(Color(.systemGray6), in: Circle())
+                        .foregroundStyle(.secondary)
+                }
+                .accessibilityLabel("編輯 \(mushroom.location)")
+
+                Button(action: onRequestDelete) {
+                    Image(systemName: "xmark")
+                        .font(.caption.weight(.heavy))
+                        .frame(width: 28, height: 28)
+                        .background(Color(.systemGray6), in: Circle())
+                        .foregroundStyle(.secondary)
+                }
+                .accessibilityLabel("刪除 \(mushroom.location)")
             }
             .padding(10)
-            .accessibilityLabel("刪除 \(mushroom.location)")
+        }
+        .contextMenu {
+            Button { onRequestEdit() } label: {
+                Label("編輯", systemImage: "pencil")
+            }
+            Button(role: .destructive) { onRequestDelete() } label: {
+                Label("刪除", systemImage: "trash")
+            }
         }
         .onReceive(ticker) { now = $0 }
     }

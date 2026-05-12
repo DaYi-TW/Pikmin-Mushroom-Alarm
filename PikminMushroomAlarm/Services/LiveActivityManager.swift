@@ -1,6 +1,6 @@
 // Target: PikminMushroomAlarm
 // Starts / updates / ends a Live Activity per Mushroom.
-// One activity per mushroom, identified by mushroom.id.uuidString.
+// One activity per mushroom, identified by mushroom.id.
 
 import Foundation
 import ActivityKit
@@ -13,12 +13,15 @@ struct LiveActivityManager {
         ActivityAuthorizationInfo().areActivitiesEnabled
     }
 
-    func start(for mushroom: Mushroom) {
+    /// Starts a Live Activity for `mushroom`, or updates the existing one if
+    /// already running. Awaiting the call guarantees the activity is observable
+    /// (e.g. by `Activity.activities`) before control returns to the caller.
+    func start(for mushroom: Mushroom) async {
         guard areEnabled else { return }
 
         // If an activity for this mushroom already exists, update instead of starting a duplicate.
         if let existing = activity(for: mushroom.id) {
-            Task { await update(existing, with: mushroom) }
+            await update(existing, with: mushroom)
             return
         }
 
@@ -54,9 +57,20 @@ struct LiveActivityManager {
         await activity.update(content)
     }
 
-    func end(for mushroomID: UUID) async {
+    /// Ends the activity for `mushroomID`. By default, schedules the activity
+    /// to auto-dismiss 60 s after respawn so the user can still glance at the
+    /// "刷新完成" state on the Lock Screen / Dynamic Island for a minute.
+    /// Pass `immediate: true` from the delete flow to remove it right away.
+    func end(for mushroomID: UUID, immediate: Bool = false) async {
         guard let activity = activity(for: mushroomID) else { return }
-        await activity.end(activity.content, dismissalPolicy: .immediate)
+        let policy: ActivityUIDismissalPolicy
+        if immediate {
+            policy = .immediate
+        } else {
+            let dismissAt = activity.content.state.respawnDate.addingTimeInterval(60)
+            policy = .after(dismissAt)
+        }
+        await activity.end(activity.content, dismissalPolicy: policy)
     }
 
     func endAll() async {

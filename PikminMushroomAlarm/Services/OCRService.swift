@@ -28,6 +28,16 @@ struct OCRResult: Sendable, Equatable {
     }
 }
 
+/// One OCR'd line plus where Vision found it on the image. We carry the
+/// vertical position so the parser can pick the topmost line as the location
+/// regardless of what Chinese characters happened to land in it.
+struct OCRLine: Sendable, Equatable {
+    var text: String
+    /// Vision uses bottom-left origin in normalized coords. We translate to
+    /// top-down ordering (smaller = higher on screen) so sort feels natural.
+    var topY: CGFloat
+}
+
 enum OCRError: Error {
     case noTextDetected
     case remainingTimeNotFound
@@ -47,46 +57,85 @@ struct OCRService {
         try handler.perform([request])
 
         let observations = request.results ?? []
-        let lines = observations.compactMap { $0.topCandidates(1).first?.string }
-        guard !lines.isEmpty else { throw OCRError.noTextDetected }
+        let positioned: [OCRLine] = observations.compactMap { obs in
+            guard let text = obs.topCandidates(1).first?.string else { return nil }
+            // Vision's boundingBox is normalized with origin at bottom-left.
+            // Convert to "distance from top" so smaller = higher up.
+            let topY = 1 - obs.boundingBox.maxY
+            return OCRLine(text: text, topY: topY)
+        }
+        guard !positioned.isEmpty else { throw OCRError.noTextDetected }
 
-        return try parse(lines: lines)
+        return try parse(lines: positioned)
     }
 
-    // Exposed for unit testing with synthetic OCR lines.
-    func parse(lines: [String]) throws -> OCRResult {
-        guard let seconds = lines.lazy.compactMap(Self.parseRemainingSeconds).first else {
+    /// Used by the recognize() path with real positional data.
+    func parse(lines: [OCRLine]) throws -> OCRResult {
+        guard let seconds = lines.lazy.compactMap({ Self.parseRemainingSeconds($0.text) }).first else {
             throw OCRError.remainingTimeNotFound
         }
 
-        // Heuristic: the line that looks like a type contains "蘑菇"; the
-        // remaining non-time, non-type line is the location.
-        let nonTimeLines = lines.filter { Self.parseRemainingSeconds($0) == nil }
-        let typeLine = nonTimeLines.first(where: { $0.contains("蘑菇") }) ?? ""
-        let locationLine = nonTimeLines.first(where: { $0 != typeLine }) ?? ""
+        // Sort top-to-bottom. In Pikmin Bloom the location name sits above
+        // the mushroom type, which sits above the remaining-time line.
+        let sorted = lines.sorted { $0.topY < $1.topY }
+        let nonTime = sorted.filter { Self.parseRemainingSeconds($0.text) == nil }
+        let location = nonTime.first?.text.trimmingCharacters(in: .whitespaces) ?? ""
+        let type = nonTime.dropFirst().first?.text.trimmingCharacters(in: .whitespaces) ?? ""
 
         return OCRResult(
-            location: locationLine.trimmingCharacters(in: .whitespaces),
-            type: typeLine.trimmingCharacters(in: .whitespaces),
+            location: location,
+            type: type,
             remainingSeconds: seconds,
-            rawLines: lines
+            rawLines: sorted.map(\.text)
         )
     }
 
-    /// Parses "剩下 1 小時 0 分 13 秒" and the compact form "剩下1小時0分13秒".
-    /// Returns total seconds, or nil if the line doesn't match.
+    /// Convenience overload for unit tests that don't have positional data —
+    /// treats array order as top-to-bottom ordering.
+    func parse(lines: [String]) throws -> OCRResult {
+        let positioned = lines.enumerated().map {
+            OCRLine(text: $0.element, topY: CGFloat($0.offset))
+        }
+        return try parse(lines: positioned)
+    }
+
+    /// Parses Pikmin Bloom's "剩下" remaining-time string. Handles:
+    ///   • `剩下 1 小時 0 分 13 秒`     (full form, spaces optional)
+    ///   • `剩下 12 分 45 秒`          (sub-hour, no 小時 segment)
+    ///   • `剩下 38 秒`                (final minute, only seconds)
+    /// Returns total seconds, or nil if no variant matches.
     static func parseRemainingSeconds(_ text: String) -> Int? {
-        let pattern = #"剩下\s*(\d+)\s*小時\s*(\d+)\s*分\s*(\d+)\s*秒"#
-        guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
-        let range = NSRange(text.startIndex..., in: text)
-        guard let match = regex.firstMatch(in: text, range: range), match.numberOfRanges == 4 else {
-            return nil
+        // Order matters — try the most specific pattern first so a "1 小時"
+        // doesn't get partially matched by the minutes-only regex.
+        let patterns: [(String, (Int?, Int?, Int?) -> Int?)] = [
+            (#"剩下\s*(\d+)\s*小時\s*(\d+)\s*分\s*(\d+)\s*秒"#, { h, m, s in
+                guard let h, let m, let s else { return nil }
+                return h * 3600 + m * 60 + s
+            }),
+            (#"剩下\s*(\d+)\s*分\s*(\d+)\s*秒"#, { m, s, _ in
+                guard let m, let s else { return nil }
+                return m * 60 + s
+            }),
+            (#"剩下\s*(\d+)\s*秒"#, { s, _, _ in
+                guard let s else { return nil }
+                return s
+            })
+        ]
+
+        for (pattern, build) in patterns {
+            guard let regex = try? NSRegularExpression(pattern: pattern) else { continue }
+            let range = NSRange(text.startIndex..., in: text)
+            guard let match = regex.firstMatch(in: text, range: range) else { continue }
+            func intAt(_ idx: Int) -> Int? {
+                guard idx < match.numberOfRanges,
+                      let r = Range(match.range(at: idx), in: text) else { return nil }
+                return Int(text[r])
+            }
+            let a = intAt(1)
+            let b = match.numberOfRanges > 2 ? intAt(2) : nil
+            let c = match.numberOfRanges > 3 ? intAt(3) : nil
+            if let result = build(a, b, c) { return result }
         }
-        func intAt(_ idx: Int) -> Int? {
-            guard let r = Range(match.range(at: idx), in: text) else { return nil }
-            return Int(text[r])
-        }
-        guard let h = intAt(1), let m = intAt(2), let s = intAt(3) else { return nil }
-        return h * 3600 + m * 60 + s
+        return nil
     }
 }

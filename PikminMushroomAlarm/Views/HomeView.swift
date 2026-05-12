@@ -3,6 +3,7 @@
 
 import SwiftUI
 import SwiftData
+import UIKit
 import WidgetKit
 
 struct HomeView: View {
@@ -12,6 +13,9 @@ struct HomeView: View {
     @State private var activeID: UUID?
     @State private var isAdding = false
     @State private var deleteTarget: Mushroom?
+    @State private var editTarget: Mushroom?
+    @State private var notificationsDenied = false
+    @State private var showSettings = false
 
     private let scheduler = NotificationScheduler()
 
@@ -22,6 +26,10 @@ struct HomeView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     header
+
+                    if notificationsDenied {
+                        NotificationsDeniedBanner()
+                    }
 
                     if mushrooms.isEmpty {
                         EmptyStateView { isAdding = true }
@@ -36,7 +44,8 @@ struct HomeView: View {
                                         mushroom: mushroom,
                                         isActive: mushroom.id == selected.id,
                                         onSelect: { activeID = mushroom.id },
-                                        onRequestDelete: { deleteTarget = mushroom }
+                                        onRequestDelete: { deleteTarget = mushroom },
+                                        onRequestEdit: { editTarget = mushroom }
                                     )
                                 }
                             }
@@ -64,8 +73,10 @@ struct HomeView: View {
         .sheet(isPresented: $isAdding) {
             AddMushroomSheet { result in
                 let mushroom = MushroomStore.insert(result, into: context)
-                Task { await scheduler.schedule(for: mushroom) }
-                LiveActivityManager.shared.start(for: mushroom)
+                Task {
+                    await scheduler.schedule(for: mushroom)
+                    await LiveActivityManager.shared.start(for: mushroom)
+                }
                 WidgetCenter.shared.reloadAllTimelines()
                 activeID = mushroom.id
             }
@@ -77,7 +88,9 @@ struct HomeView: View {
                 let mushroomID = mushroom.id
                 Task {
                     await scheduler.cancel(for: mushroom)
-                    await LiveActivityManager.shared.end(for: mushroomID)
+                    // User-initiated delete → remove the Live Activity right
+                    // away rather than letting it linger until respawn.
+                    await LiveActivityManager.shared.end(for: mushroomID, immediate: true)
                 }
                 context.delete(mushroom)
                 try? context.save()
@@ -87,8 +100,20 @@ struct HomeView: View {
             .presentationDetents([.height(360)])
             .presentationDragIndicator(.visible)
         }
+        .sheet(item: $editTarget) { mushroom in
+            EditMushroomSheet(mushroom: mushroom) {}
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $showSettings) {
+            SettingsSheet()
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+        }
         .task {
             _ = try? await scheduler.requestAuthorization()
+            let status = await scheduler.authorizationStatus()
+            notificationsDenied = (status == .denied)
         }
     }
 
@@ -106,6 +131,15 @@ struct HomeView: View {
                     .font(.system(size: 28, weight: .black))
             }
             Spacer()
+            Button { showSettings = true } label: {
+                Image(systemName: "gearshape.fill")
+                    .font(.title3.weight(.bold))
+                    .frame(width: 44, height: 44)
+                    .background(Color.white.opacity(0.85), in: RoundedRectangle(cornerRadius: 14))
+                    .foregroundStyle(.green)
+            }
+            .accessibilityLabel("設定")
+
             if !mushrooms.isEmpty {
                 Button { isAdding = true } label: {
                     Image(systemName: "plus")
@@ -210,6 +244,43 @@ struct EmptyStateView: View {
         }
         .padding(32)
         .background(Color.white.opacity(0.9), in: RoundedRectangle(cornerRadius: 28))
+    }
+}
+
+/// Shown when the user denied notification permission. Without notifications,
+/// the entire app is useless — surface it loudly with a Settings deep link.
+struct NotificationsDeniedBanner: View {
+    @Environment(\.openURL) private var openURL
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: "bell.slash.fill")
+                    .foregroundStyle(.white)
+                Text("通知未開啟")
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(.white)
+                Spacer()
+            }
+            Text("沒有通知權限的話，蘑菇刷新前無法提醒你。")
+                .font(.caption)
+                .foregroundStyle(.white.opacity(0.95))
+            Button {
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    openURL(url)
+                }
+            } label: {
+                Text("前往設定開啟")
+                    .font(.caption.weight(.bold))
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(Color.white, in: Capsule())
+                    .foregroundStyle(.orange)
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.orange, in: RoundedRectangle(cornerRadius: 16))
     }
 }
 

@@ -24,15 +24,20 @@ PikminMushroomAlarm/PikminMushroomAlarmApp.swift
 PikminMushroomAlarm/Models/Mushroom.swift
 PikminMushroomAlarm/Models/NotificationOffset.swift
 PikminMushroomAlarm/Models/AppGroup.swift
+PikminMushroomAlarm/Models/MushroomActivityAttributes.swift
 PikminMushroomAlarm/Services/OCRService.swift
 PikminMushroomAlarm/Services/NotificationScheduler.swift
+PikminMushroomAlarm/Services/NotificationActionHandler.swift
 PikminMushroomAlarm/Services/MushroomStore.swift
+PikminMushroomAlarm/Services/LiveActivityManager.swift
 PikminMushroomAlarm/Services/TimeFormatting.swift
 PikminMushroomAlarm/Views/HomeView.swift
 PikminMushroomAlarm/Views/HeroCardView.swift
 PikminMushroomAlarm/Views/MushroomCardView.swift
 PikminMushroomAlarm/Views/AddMushroomSheet.swift
+PikminMushroomAlarm/Views/EditMushroomSheet.swift
 PikminMushroomAlarm/Views/DeleteConfirmSheet.swift
+PikminMushroomAlarm/Views/SettingsSheet.swift
 PikminMushroomAlarm/Views/LaunchScreenView.swift
 ```
 
@@ -62,7 +67,7 @@ Info.plist 不要拖（Xcode 自己會管），改用我們 `Resources/Info.plis
 
 1. Xcode → **File → New → Target → iOS → Share Extension**
    - Product Name: `ShareExtension`
-2. 同樣刪掉 Xcode 生的範本 `ShareViewController.swift` 和 `MainInterface.storyboard` 裡多餘內容，把這幾個檔案掛上 `ShareExtension` target：
+2. **重要**：Xcode 預設會生 `ShareViewController.swift` + `MainInterface.storyboard`。把它們**全部刪掉**（Move to Trash）。我們的 `ShareExtension/Info.plist` 已經改成用 `NSExtensionPrincipalClass`（程式式啟動）而不是 storyboard，所以不需要 storyboard 檔案。把以下檔案掛上 `ShareExtension` target：
    ```
    ShareExtension/ShareViewController.swift
    ShareExtension/Info.plist  (替換 Xcode 生的)
@@ -99,12 +104,28 @@ Info.plist 不要拖（Xcode 自己會管），改用我們 `Resources/Info.plis
    NotificationOffset.swift
    AppGroup.swift
    MushroomActivityAttributes.swift
+   MushroomStore.swift
    ```
-   注意 widget extension **不要** 勾 `OCRService` / `NotificationScheduler` / `MushroomStore` / 任何 View — widget 自己用 inline 的 ModelContainer 讀資料（見 `MushroomWidget.swift`）。
+   注意 widget extension **不要** 勾 `OCRService` / `NotificationScheduler` / 任何 View — widget 透過 `MushroomStore.shared`（同一個 App Group 容器）讀資料，避免重複開啟 SwiftData 容器造成 write conflict。
 4. `PikminWidgets` target → **Signing & Capabilities** → 加同一個 **App Group**。
 5. 主 app Info.plist 確認有這兩個 key（檔案裡已經加好）：
    - `NSSupportsLiveActivities = YES`
    - `NSSupportsLiveActivitiesFrequentUpdates = YES`
+
+## 5.5 加 Test target（可選但建議）
+
+1. Xcode → **File → New → Target → iOS → Unit Testing Bundle**
+   - Product Name: `PikminMushroomAlarmTests`
+   - Target to be Tested: `PikminMushroomAlarm`
+2. 刪掉 Xcode 生的範本，把 `Tests/OCRServiceTests.swift` 掛到這個 test target。
+3. 把以下檔案的 **target membership** 同時勾上 `PikminMushroomAlarmTests`：
+   ```
+   OCRService.swift
+   Mushroom.swift
+   NotificationOffset.swift
+   AppGroup.swift
+   ```
+4. ⌘U 跑測試。
 
 ## 6. Build & Run
 

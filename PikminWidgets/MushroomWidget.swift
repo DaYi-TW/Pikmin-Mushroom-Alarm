@@ -19,7 +19,13 @@ struct MushroomWidget: Widget {
         }
         .configurationDisplayName("蘑菇鬧鐘")
         .description("顯示最接近刷新的蘑菇倒數。")
-        .supportedFamilies([.systemSmall, .systemMedium])
+        .supportedFamilies([
+            .systemSmall,
+            .systemMedium,
+            .accessoryRectangular,
+            .accessoryCircular,
+            .accessoryInline
+        ])
     }
 }
 
@@ -77,11 +83,10 @@ struct MushroomTimelineProvider: TimelineProvider {
     }
 
     private func loadSnapshots() -> [MushroomSnapshot] {
-        let schema = Schema([Mushroom.self])
-        guard let url = AppGroup.storeURL else { return [] }
-        let config = ModelConfiguration(schema: schema, url: url)
-        guard let container = try? ModelContainer(for: schema, configurations: [config]) else { return [] }
-        let context = ModelContext(container)
+        // Reuse the shared ModelContainer (same App Group URL as the main app
+        // and Share Extension). Opening a second container against the same
+        // store file from the same process risks SwiftData write conflicts.
+        let context = ModelContext(MushroomStore.shared)
         let descriptor = FetchDescriptor<Mushroom>(sortBy: [SortDescriptor(\.respawnDate)])
         guard let mushrooms = try? context.fetch(descriptor) else { return [] }
         return mushrooms.map {
@@ -101,8 +106,61 @@ struct MushroomWidgetView: View {
 
     var body: some View {
         switch family {
-        case .systemSmall: smallView
-        default: mediumView
+        case .systemSmall:           smallView
+        case .accessoryRectangular:  accessoryRectangularView
+        case .accessoryCircular:     accessoryCircularView
+        case .accessoryInline:       accessoryInlineView
+        default:                     mediumView
+        }
+    }
+
+    /// Lock Screen rectangular tile — two lines of text, no chrome.
+    @ViewBuilder
+    private var accessoryRectangularView: some View {
+        if let snapshot = entry.soonest {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 4) {
+                    Text("🍄")
+                    Text(snapshot.location)
+                        .font(.caption2.weight(.bold))
+                        .lineLimit(1)
+                }
+                Text(timerInterval: .now...countdownTarget(for: snapshot), countsDown: true)
+                    .font(.headline.weight(.black))
+                    .monospacedDigit()
+            }
+        } else {
+            Text("🍄 沒有鬧鐘")
+                .font(.caption2.weight(.bold))
+        }
+    }
+
+    /// Lock Screen circular complication — just the countdown.
+    @ViewBuilder
+    private var accessoryCircularView: some View {
+        if let snapshot = entry.soonest {
+            VStack(spacing: 0) {
+                Text("🍄").font(.caption2)
+                Text(timerInterval: .now...countdownTarget(for: snapshot), countsDown: true)
+                    .font(.caption2.weight(.bold))
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+            }
+        } else {
+            Image(systemName: "bell.slash")
+                .font(.title3)
+        }
+    }
+
+    /// Inline Lock Screen complication — single line above the clock.
+    @ViewBuilder
+    private var accessoryInlineView: some View {
+        if let snapshot = entry.soonest {
+            Text("🍄 \(snapshot.location) ") +
+            Text(timerInterval: .now...countdownTarget(for: snapshot), countsDown: true)
+        } else {
+            Text("🍄 沒有鬧鐘")
         }
     }
 

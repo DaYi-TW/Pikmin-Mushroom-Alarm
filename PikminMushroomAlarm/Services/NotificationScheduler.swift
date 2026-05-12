@@ -46,6 +46,13 @@ struct NotificationScheduler {
         try await center.requestAuthorization(options: [.alert, .sound, .badge, .timeSensitive])
     }
 
+    /// Reads the current authorization status without prompting. UI uses this
+    /// after `requestAuthorization` to decide whether to show a "permission
+    /// denied" banner with a Settings deep link.
+    func authorizationStatus() async -> UNAuthorizationStatus {
+        await center.notificationSettings().authorizationStatus
+    }
+
     func registerCategories() {
         center.setNotificationCategories([MushroomNotification.category])
     }

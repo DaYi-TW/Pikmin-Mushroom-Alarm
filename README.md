@@ -25,8 +25,10 @@ Pikmin Bloom 截圖
 - **遞增式通知** — T+0、T+3:00、T+4:00、T+4:30、T+4:50、T+5:00 越接近刷新提醒越密
 - **Share Extension** — 從相簿 / Pikmin Bloom 直接分享截圖，自動建立鬧鐘
 - **Live Activity + Dynamic Island** — 鎖屏即時倒數，iPhone 14 Pro 以上有靈動島
-- **Home Screen Widget** — Small / Medium 兩種尺寸顯示下一朵刷新的蘑菇
+- **Home Screen Widget** — Small / Medium 兩種尺寸；鎖屏複雜功能（矩形 / 圓形 / 行內）也支援
 - **Apple Watch 通知** — 配對 Watch 後自動接收，有「打開 Pikmin」「再延 1 分鐘」按鈕
+- **手動編輯** — OCR 認錯時可直接改地點 / 類型 / 剩下時間，會自動重排通知與 Live Activity
+- **設定頁** — 通知狀態檢查、一鍵清除所有蘑菇、版本資訊
 
 ## 技術棧
 
@@ -114,7 +116,9 @@ OCRResult(
 )
 ```
 
-若 Pikmin Bloom 之後改了 UI 文字，調整 `OCRService.swift` 裡那個 regex 就好。
+`parseRemainingSeconds` 同時支援三種格式：完整 `剩下 H 小時 M 分 S 秒`、無小時 `剩下 M 分 S 秒`、僅秒 `剩下 S 秒`。
+
+地點 / 類型不是用「蘑菇」keyword 判斷，而是依 Vision 偵測到的文字 boundingBox 由上到下排序：第一行是地點，第二行是類型。Pikmin Bloom 之後若改 UI 排版，主要在 `OCRService.parse(lines:)` 調整。
 
 ## 通知節奏
 
@@ -139,7 +143,10 @@ OCRResult(
 - [x] Share Extension
 - [x] Live Activity + Dynamic Island
 - [x] Home Screen Widget
+- [x] 鎖屏 Widget（Accessory rectangular / circular / inline）
 - [x] Apple Watch 通知（轉發 + 動作按鈕）
+- [x] 手動編輯蘑菇 + 設定頁
+- [x] OCRService 單元測試
 - [ ] 獨立 watchOS App + 錶面 Complication
 - [ ] iCloud 同步（多裝置）
 - [ ] AI 蘑菇分類（GPT/Claude Vision）

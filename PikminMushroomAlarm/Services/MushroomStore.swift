@@ -1,11 +1,15 @@
-// Target: PikminMushroomAlarm + ShareExtension
-// SwiftData container backed by the App Group, so the Share Extension
-// and the main app see the same mushrooms.
+// Target: PikminMushroomAlarm + ShareExtension + PikminWidgets
+// SwiftData container backed by the App Group, so the Share Extension,
+// the main app, AND the widget see the same mushrooms.
+//
+// Not @MainActor — the widget runs its timeline provider off the main actor,
+// and the Share Extension does its OCR off the main actor too. Callers that
+// touch ModelContext on the main thread (like HomeView's @Environment context)
+// already get main-actor isolation from SwiftUI, so we don't enforce it here.
 
 import Foundation
 import SwiftData
 
-@MainActor
 enum MushroomStore {
     static let shared: ModelContainer = {
         let schema = Schema([Mushroom.self])
@@ -23,6 +27,7 @@ enum MushroomStore {
         }
     }()
 
+    @discardableResult
     static func insert(_ result: OCRResult, into context: ModelContext) -> Mushroom {
         let mushroom = Mushroom(
             location: result.location,

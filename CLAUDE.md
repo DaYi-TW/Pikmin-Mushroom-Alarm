@@ -23,10 +23,11 @@ There is no build command runnable on Windows — Swift can't compile here. Iter
 
 Target membership (top-of-file comments label this on every shared file — keep them accurate when adding files):
 
-- **Main app + Share Extension + Widget**: `Mushroom.swift`, `NotificationOffset.swift`, `AppGroup.swift`, `MushroomActivityAttributes.swift`
-- **Main app + Share Extension only**: `OCRService.swift`, `NotificationScheduler.swift`, `MushroomStore.swift`
+- **Main app + Share Extension + Widget**: `Mushroom.swift`, `NotificationOffset.swift`, `AppGroup.swift`, `MushroomActivityAttributes.swift`, `MushroomStore.swift` (widget reuses the shared `ModelContainer` — don't create a second one)
+- **Main app + Share Extension only**: `OCRService.swift`, `NotificationScheduler.swift`
 - **Main app only**: `LiveActivityManager.swift`, `NotificationActionHandler.swift`, everything in `Views/`, `TimeFormatting.swift`
-- **Widget only**: everything in `PikminWidgets/`
+- **Widget only**: `PikminWidgetsBundle.swift`, `MushroomWidget.swift`, `MushroomLiveActivity.swift`
+- **Test target**: `Tests/OCRServiceTests.swift` — covers `parseRemainingSeconds` and `parse(lines:)`. The Vision-based `recognize(image:)` path needs a real device / image so it's not unit-tested.
 
 ActivityKit's API limits where Live Activities can be started: **only the foreground main app**, never the Share Extension. The Share Extension writes mushrooms to the shared store and calls `WidgetCenter.shared.reloadAllTimelines()`; the main app's `reconcileLiveActivities()` in `PikminMushroomAlarmApp.swift` catches up missing activities on next launch / foregrounding. Don't try to `import ActivityKit` from the Share Extension target — it will compile but `Activity.request` silently does nothing.
 
@@ -40,7 +41,8 @@ These are decisions from `proposal.md`; do not change them without user directio
 - **No backend.** No auth, no cloud sync, no server. Everything local.
 - **Vision Framework for OCR.** Don't reach for GPT/Gemini Vision unless the user reopens that decision.
 - **Notification cadence is fixed**: T+0, T+3:00, T+4:00, T+4:30, T+4:50, T+5:00 (encoded in `NotificationOffset`). The respawn-time invariant is also `finish + 5 minutes` — used by `OCRResult.respawnDate` and `NotificationScheduler`.
-- **zh-TW strings** in the UI. The OCR regex `剩下\s*(\d+)\s*小時\s*(\d+)\s*分\s*(\d+)\s*秒` lives in `OCRService.parseRemainingSeconds` and is the contract with Pikmin Bloom's zh-TW localization. If Pikmin Bloom's text format changes, that single function is the place to add a new parser branch — keep it pure so it stays unit-testable from synthetic strings.
+- **zh-TW strings** in the UI. `OCRService.parseRemainingSeconds` is the contract with Pikmin Bloom's zh-TW localization. It already handles three forms — `剩下 H 小時 M 分 S 秒`, `剩下 M 分 S 秒`, `剩下 S 秒`. If Pikmin Bloom's format ever changes, add a new branch to the `patterns` array (most-specific first) and a corresponding unit test in `OCRServiceTests`.
+- **OCR line ordering uses Vision boundingBox**, not keyword heuristics. `OCRService.recognize` collects each observation's normalized top-Y position and sorts top→bottom; the topmost non-time line becomes the location, the next one the type. Don't reintroduce a `contains("蘑菇")` shortcut — Pikmin Bloom shows different type strings (常見蘑菇, 輝煌蘑菇, etc.).
 
 ## Apple Watch notifications (no watchOS target)
 
@@ -60,6 +62,8 @@ Both the widget and the Live Activity use `Text(timerInterval: now...target, cou
 
 The widget timeline (`MushroomTimelineProvider`) schedules its next refresh at the next finish/respawn moment, or at most 15 minutes out — newly-added mushrooms appear without forcing the user to wait an hour for the system's next budgeted refresh.
 
+Live Activity dismissal: `LiveActivityManager.end(for:immediate:)` defaults to *non-immediate* (the activity stays visible for ~60 s after respawn, so the user sees the "刷新完成" state on the Lock Screen). The delete flow passes `immediate: true`; the reconcile flow also uses immediate for orphans.
+
 ## The JSX mockup is a spec, not legacy
 
 `pikmin_alarm_mockup.jsx` describes the intended UX. The SwiftUI files mirror it 1:1:
@@ -72,6 +76,12 @@ The widget timeline (`MushroomTimelineProvider`) schedules its next refresh at t
 - `OCRService.parseRemainingSeconds` ↔ `parseRemainingTime`
 
 When tweaking visual structure, check the JSX first to stay consistent with the approved design (Apple Health / Fitness-inspired, per proposal §5).
+
+Views added beyond the JSX (allowed extensions of the spec):
+- `SettingsSheet` — gear icon in the header, shows notification status / clear all / version.
+- `EditMushroomSheet` — pencil button on each carousel card + context menu, for OCR correction.
+- `NotificationsDeniedBanner` — inline banner if permission was denied; deep-links to Settings.
+- `LaunchScreenView` — splash with animated 🍄, sized to overlap `UILaunchScreen` color seamlessly.
 
 ## Developer workflow
 
