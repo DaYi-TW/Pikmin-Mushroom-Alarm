@@ -25,7 +25,7 @@ Target membership (top-of-file comments label this on every shared file — keep
 
 - **Main app + Share Extension + Widget**: `Mushroom.swift`, `NotificationOffset.swift`, `AppGroup.swift`, `MushroomActivityAttributes.swift`
 - **Main app + Share Extension only**: `OCRService.swift`, `NotificationScheduler.swift`, `MushroomStore.swift`
-- **Main app only**: `LiveActivityManager.swift`, everything in `Views/`, `TimeFormatting.swift`
+- **Main app only**: `LiveActivityManager.swift`, `NotificationActionHandler.swift`, everything in `Views/`, `TimeFormatting.swift`
 - **Widget only**: everything in `PikminWidgets/`
 
 ActivityKit's API limits where Live Activities can be started: **only the foreground main app**, never the Share Extension. The Share Extension writes mushrooms to the shared store and calls `WidgetCenter.shared.reloadAllTimelines()`; the main app's `reconcileLiveActivities()` in `PikminMushroomAlarmApp.swift` catches up missing activities on next launch / foregrounding. Don't try to `import ActivityKit` from the Share Extension target — it will compile but `Activity.request` silently does nothing.
@@ -41,6 +41,18 @@ These are decisions from `proposal.md`; do not change them without user directio
 - **Vision Framework for OCR.** Don't reach for GPT/Gemini Vision unless the user reopens that decision.
 - **Notification cadence is fixed**: T+0, T+3:00, T+4:00, T+4:30, T+4:50, T+5:00 (encoded in `NotificationOffset`). The respawn-time invariant is also `finish + 5 minutes` — used by `OCRResult.respawnDate` and `NotificationScheduler`.
 - **zh-TW strings** in the UI. The OCR regex `剩下\s*(\d+)\s*小時\s*(\d+)\s*分\s*(\d+)\s*秒` lives in `OCRService.parseRemainingSeconds` and is the contract with Pikmin Bloom's zh-TW localization. If Pikmin Bloom's text format changes, that single function is the place to add a new parser branch — keep it pure so it stays unit-testable from synthetic strings.
+
+## Apple Watch notifications (no watchOS target)
+
+Phase A approach — no Watch app exists. Watch behavior is purely *iPhone notifications being forwarded*. Three things make this work well:
+
+- `NotificationScheduler` sets `categoryIdentifier = MushroomNotification.categoryID` on every request — the category defines two actions ("打開 Pikmin Bloom", "再提醒 1 分鐘") that the Watch surfaces as buttons.
+- `relevanceScore` is set per offset (0.1 → 1.0). Watch + Notification Summary use this to rank items.
+- `interruptionLevel = .timeSensitive` for the last three offsets so they cut through Focus modes.
+
+`NotificationActionHandler` (the `UNUserNotificationCenterDelegate`) handles the button taps. The "open game" action uses the `pikminbloom://` URL scheme — Info.plist must list it under `LSApplicationQueriesSchemes` for `canOpenURL` to return true. If the published scheme ever changes, update both places.
+
+**Don't** add a watchOS target as part of this Phase A work; that's Phase B (independent Watch app + complication).
 
 ## Widget / Live Activity ticking
 

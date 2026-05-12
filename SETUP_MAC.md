@@ -114,3 +114,8 @@ Info.plist 不要拖（Xcode 自己會管），改用我們 `Resources/Info.plis
 - **動態島沒出現** → 只有 iPhone 14 Pro 以上、iOS 16.1+ 才有 Dynamic Island。模擬器要選對機型；真機要在 設定 → 蘑菇鬧鐘 → 即時動態 開啟。
 - **Live Activity 從 Share Extension 沒啟動** → ActivityKit 不允許 extension 啟動 activity。主 app 下次進前景時會在 `reconcileLiveActivities()` 補上。
 - **Widget 倒數凍住不動** → `Text(timerInterval:)` 才有自動 ticking；如果你改成 `Text(formatted)` 就會每分鐘才更新一次。
+- **Apple Watch 收不到通知** →
+  1. iPhone 跟 Watch 配對狀態 OK 嗎（Watch App 裡看）
+  2. Watch App → 蘑菇鬧鐘 → 「通知」要設成 *鏡像 iPhone* 或 *自訂* 並允許通知
+  3. iPhone 螢幕亮著的時候通知預設只在 iPhone 顯示；鎖屏或螢幕關掉時才會轉發到 Watch
+- **「打開 Pikmin Bloom」按鈕沒反應** → 確認 Pikmin Bloom 已安裝；如果 Pikmin Bloom 改了 URL scheme，更新 `NotificationActionHandler.pikminBloomURL` 跟 Info.plist 的 `LSApplicationQueriesSchemes`。

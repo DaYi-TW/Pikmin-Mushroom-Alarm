@@ -3,10 +3,16 @@
 import SwiftUI
 import SwiftData
 import ActivityKit
+import UserNotifications
 
 @main
 struct PikminMushroomAlarmApp: App {
     @Environment(\.scenePhase) private var scenePhase
+
+    init() {
+        UNUserNotificationCenter.current().delegate = NotificationActionHandler.shared
+        NotificationScheduler().registerCategories()
+    }
 
     var body: some Scene {
         WindowGroup {

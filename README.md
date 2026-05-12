@@ -26,6 +26,7 @@ Pikmin Bloom 截圖
 - **Share Extension** — 從相簿 / Pikmin Bloom 直接分享截圖，自動建立鬧鐘
 - **Live Activity + Dynamic Island** — 鎖屏即時倒數，iPhone 14 Pro 以上有靈動島
 - **Home Screen Widget** — Small / Medium 兩種尺寸顯示下一朵刷新的蘑菇
+- **Apple Watch 通知** — 配對 Watch 後自動接收，有「打開 Pikmin」「再延 1 分鐘」按鈕
 
 ## 技術棧
 
@@ -138,6 +139,7 @@ OCRResult(
 - [x] Share Extension
 - [x] Live Activity + Dynamic Island
 - [x] Home Screen Widget
-- [ ] Apple Watch 通知
+- [x] Apple Watch 通知（轉發 + 動作按鈕）
+- [ ] 獨立 watchOS App + 錶面 Complication
 - [ ] iCloud 同步（多裝置）
 - [ ] AI 蘑菇分類（GPT/Claude Vision）
